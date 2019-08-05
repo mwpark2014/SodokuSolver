@@ -1,55 +1,17 @@
+import copy
 import heapq
 import re
-from typing import Set
+import sys
+import time
+from typing import List, Set, Tuple
 
-# If every class variable will be snapshot, make every dependence real-time instead of cached
-# Cut out branches that have already been explored (at least the failures)
+# TODO: Create Exception class for unsolvable puzzle
 
 # Size of sodoku puzzle. Default is 9x9
 SIZE = 9
 
-# TODO: Remove this
-examplePuzzle = [
-    ['1', '2', '3', '4', '5', '6', '7', '8', '9'],
-    ['7', '8', '9', '1', '2', '3', '4', '5', '6'],
-    ['4', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X'],
-    ['2', '3', '4', '5', '6', '7', '8', '9', '1'],
-    ['5', '6', '7', '8', '9', '1', '2', '3', '4'],
-    ['X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X'],
-    ['X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X'],
-    ['X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X'],
-    ['X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X'],
-]
-
-exampleEasyPuzzle = [
-    ['1', 'X', '7', 'X', 'X', '6', 'X', 'X', 'X'],
-    ['X', 'X', '4', 'X', 'X', '9', '8', 'X', '7'],
-    ['X', '5', 'X', '2', 'X', 'X', 'X', 'X', '9'],
-    ['3', '7', '9', 'X', 'X', '5', '4', 'X', 'X'],
-    ['X', '8', 'X', '1', 'X', '7', 'X', '2', 'X'],
-    ['X', 'X', '1', '6', 'X', 'X', '7', '8', '5'],
-    ['6', 'X', 'X', 'X', 'X', '8', 'X', '9', 'X'],
-    ['9', 'X', '8', '4', 'X', 'X', '2', 'X', 'X'],
-    ['X', '4', 'X', '9', 'X', 'X', '1', 'X', '8'],
-]
-
-exampleMediumPuzzle = [
-    ['X', '2', 'X', '6', 'X', '8', 'X', 'X', 'X'],
-    ['5', '8', 'X', 'X', 'X', '9', '7', 'X', 'X'],
-    ['X', 'X', 'X', 'X', '4', 'X', 'X', 'X', 'X'],
-    ['3', '7', 'X', 'X', 'X', 'X', '5', 'X', '4'],
-    ['6', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X'],
-    ['X', 'X', '8', 'X', 'X', 'X', 'X', '1', '3'],
-    ['X', 'X', 'X', 'X', '2', 'X', 'X', 'X', 'X'],
-    ['X', 'X', '9', '8', 'X', 'X', 'X', '3', '6'],
-    ['X', 'X', 'X', '3', 'X', '6', 'X', '9', 'X'],
-]
-
-exampleWrongPuzzle = [[str(i) for i in range(1, SIZE+1)] for j in range(1, SIZE+1)]
-
-
 class Sodoku:
-    def __init__(self, puzzle):
+    def __init__(self, puzzle = None):
         # Data structures dealing with values already set
         self.set_values = {
             # rows, cols, and groups are sets representing set values for each constraint
@@ -62,13 +24,17 @@ class Sodoku:
         # Data structures dealing with possible values still to be placed
         self.possible_values = {
             # rows, cols, and groups are dicts representing possible values mapped to all possible positions
+            # this is required to find patterns in possible values within each constraint
             'rows': None,
             'cols': None,
             'groups': None,
-            # puzzle is a 2D matrix representing possible values (which is a set)
+            # puzzle is a 2D matrix representing possible values (which is a set) for each board space
             'puzzle': None,
             # min heap of all unfilled spaces (ordered by length of the list of possible values)
             'unfilled_spaces': None,
+            # visited is a 2D matrix representing all visited values so we trim the decision branches we've already
+            # visited. This is a 2D matrix containing sets
+            'visited': [[set() for i in range(SIZE)] for j in range(SIZE)],
         }
 
     # Ask for input and parse into 2d array
@@ -81,7 +47,7 @@ class Sodoku:
             while(True):
                 rowString = input('Row {}: '.format(i))
                 if rowString == 'exit':
-                    return
+                    sys.exit('Exited!')
                 elif len(rowString) != SIZE:
                     print('A valid row must have exactly {} characters in it! "exit" to quit'.format(SIZE))
                 else:
@@ -108,7 +74,7 @@ class Sodoku:
     # where all spaces are filled but it is not valid. This will throw an exception.
     def is_solved(self):
         if self.possible_values['unfilled_spaces'] is None:
-            self.init_possible_values()
+            self.update_possible_values()
         if len(self.possible_values['unfilled_spaces']) <= 0:
             return True
         return False
@@ -141,8 +107,8 @@ class Sodoku:
         })
 
     # Initialize possible_values puzzle 2D matrix and
-    def init_possible_values(self):
-        puzzle = [[[] for i in range(SIZE)] for j in range(SIZE)]
+    def update_possible_values(self):
+        puzzle = [[None for i in range(SIZE)] for j in range(SIZE)]
         rows = [{} for i in range(SIZE)]
         cols = [{} for i in range(SIZE)]
         groups = [{} for i in range(SIZE)]
@@ -159,7 +125,8 @@ class Sodoku:
             return (solution_set
                     .difference(self.set_values['rows'][i])
                     .difference(self.set_values['cols'][j])
-                    .difference(self.set_values['groups'][self.get_group_index(i, j)]))
+                    .difference(self.set_values['groups'][self.get_group_index(i, j)])
+                    .difference(self.possible_values['visited'][i][j]))
 
         # Iterate through puzzle
         for i in range(SIZE):
@@ -184,51 +151,69 @@ class Sodoku:
 
     # Update sodoku state when placing a value into an unfilled space. Transition unfilled space with possible_values
     # to a set space with one definitive value
-    # Raise exception if len(possible_values) for any spot is ever < 1
-    def place_value(self, i, j, value):
-        if i < 0 or j < 0 or i >= SIZE or j >= SIZE:
-            raise ValueError("'i' and 'j' arguments must be > 0 and < the size of the puzzle")
-        if value is None or not isinstance(value, str) or re.match(r'\D', value):
-            raise ValueError("'value' argument must be a string containing a digit")
-        if self.set_values['puzzle'][i][j] != 'X':
-            raise ValueError('Attempting to fill a space that is already filled')
-        self.set_values['puzzle'][i][j] = value
+    def place_values(self, coord_values:List[Tuple]):
+        for coord_value in coord_values:
+            i, j, value = coord_value
+            if i < 0 or j < 0 or i >= SIZE or j >= SIZE:
+                raise ValueError("'i' and 'j' arguments must be > 0 and < the size of the puzzle", i, j)
+            if value is None or not isinstance(value, str) or re.match(r'\D', value):
+                raise ValueError("'value' argument must be a string containing a digit", value)
+            if self.set_values['puzzle'][i][j] != 'X':
+                raise ValueError('Attempting to fill a space that is already filled', i, j, value)
+            self.set_values['puzzle'][i][j] = value
 
-        # Update set_values
-        rows = self.set_values['rows']
-        cols = self.set_values['cols']
-        groups = self.set_values['groups']
-        # If there are duplicates in any set, puzzle will never be solved
-        if value in rows[i] or value in cols[j] or value in groups[self.get_group_index(i, j)]:
-            # Undo placement in case we decide to recover from this exception
-            self.set_values['puzzle'][i][j] = 'X'
-            raise ValueError('Puzzle is invalid and unsolvable!')
-        rows[i].add(value)
-        cols[j].add(value)
-        groups[self.get_group_index(i, j)].add(value)
+            # Update set_values
+            rows = self.set_values['rows']
+            cols = self.set_values['cols']
+            groups = self.set_values['groups']
+            # If there are duplicates in any set, puzzle will never be solved
+            if value in rows[i] or value in cols[j] or value in groups[self.get_group_index(i, j)]:
+                # Undo placement in case we decide to recover from this exception
+                self.set_values['puzzle'][i][j] = 'X'
+                raise ValueError('Puzzle is invalid and unsolvable!')
+            rows[i].add(value)
+            cols[j].add(value)
+            groups[self.get_group_index(i, j)].add(value)
 
         # Update possible_values
-
-        return
+        self.update_possible_values()
 
     # Fill in any spots that must have one solution
     # Return True if puzzle is solved
+    # TODO: Break this method into using smaller methods for each of the two approaches
     def fill_trivial_spaces(self):
         was_changed = False
         if self.possible_values['unfilled_spaces'] is None:
-            self.init_possible_values()
-        unfilled_spaces = self.possible_values['unfilled_spaces']
+            self.update_possible_values()
 
+        # If any spot has only 1 possible value, then that space must have that possible value as the answer
         # unfilled_space is a tuple of (<length of possible_values>, <(i, j) coordinates of space>)
-        for unfilled_space in unfilled_spaces:
-            # We are only looking at the beginning of the min heap unfilled_spaces, so exit after we start seeing
-            # possible_values lengths > 1
-            if unfilled_space[0] > 1:
-                break
+        unfilled_space = self.possible_values['unfilled_spaces'][0]
+        # If we already have unfilled spaces with no possible values, then we're already in an unsolvable state
+        if unfilled_space[0] < 1:
+            raise ValueError('Puzzle is invalid and unsolvable')
+        # We are only looking at the beginning of the min heap unfilled_spaces with 1 possible value
+        if unfilled_space[0] == 1:
             i, j = unfilled_space[1]
             # Take the one and only element in possible_values['puzzle'] at i, j and place that in the unfilled space
-            self.place_value(i, j, self.possible_values['puzzle'][i][j][0])
+            self.place_values([(i, j, self.possible_values['puzzle'][i][j].pop())])
             was_changed = True
+
+        # If any constraint has only 1 spot a possible value can possibly be placed, then that value can only be placed
+        # in that space
+        # O(3 * SIZE * SIZE)
+        for constraints in [self.possible_values['rows'], self.possible_values['cols'], self.possible_values['groups']]:
+            coord_values = []
+            for constraint in constraints:
+                for value, coords in constraint.items():
+                    if len(coords) == 1:
+                        coord = coords[0]
+                        coord_values.append((coord[0], coord[1], value))
+                        was_changed = True
+            self.place_values(coord_values)
+            # Since we're mutating the values we're iterating over, we need to exit the loop if anything was changed
+            if was_changed:
+                break
 
         if self.is_solved():
             return True
@@ -238,8 +223,11 @@ class Sodoku:
 
     # Main solve method!
     def solve(self):
+        start_time = time.time()
+        self.init_set_values()
+        self.update_possible_values()
         if self.solve_helper():
-            print('Solution: ')
+            print('Solution found in {} seconds!'.format(time.time() - start_time))
             self.pretty_print()
         else:
             print('This sodoku puzzle is unsolvable.')
@@ -248,25 +236,26 @@ class Sodoku:
     # If that doesn't work, make guesses and recurse through different decision tree paths
     # Return true if puzzle is solved
     def solve_helper(self):
-        possible_values_min_heap = []
         if self.is_solved():
             return True
+        self.pretty_print()
         try:
             if self.fill_trivial_spaces():
                 return True
-        except Exception:
+        except ValueError:
             return False
-        if len(possible_values_min_heap) != 0:
-            # Save a copy of current puzzle state before making guesses and recursing through decision paths
-            while len(possible_values_min_heap) > 0:
-                i, j = heapq.heappop(possible_values_min_heap)[1]
-                for possible_value in self.get_possible_values(i, j):
-                    puzzle_copy = [row[:] for row in self.puzzle]
-                    self.puzzle[i][j] = possible_value
-                    if self.solve_helper():
-                        return True
-                    self.puzzle = puzzle_copy
-                    self.is_solved()
+        while len(self.possible_values['unfilled_spaces']) > 0:
+            i, j = heapq.heappop(self.possible_values['unfilled_spaces'])[1]
+            for possible_value in self.possible_values['puzzle'][i][j]:
+                # Save a copy of current puzzle state before making guesses and recursing through decision paths
+                set_values_copy = copy.deepcopy(self.set_values)
+                possible_values_copy = copy.deepcopy(self.possible_values)
+                self.place_values([(i, j, possible_value)])
+                if self.solve_helper():
+                    return True
+                # Reset to previous state after determining that the guess did not leave to a solution
+                self.set_values = set_values_copy
+                self.possible_values = possible_values_copy
         return False
 
     # Randomly generate solvable puzzles, taking in difficulty ratio
@@ -280,20 +269,5 @@ class Sodoku:
 
 if __name__ == '__main__':
     sodoku = Sodoku()
-    sodoku.pretty_print()
-    sodoku.init_possible_values()
-    #sodoku.fill_trivial_spaces()
-    #sodoku.get_input_and_parse()
-    #sodoku.solve()
-    # Use is_solved to populate row, col, group sets
-    # print(sodoku.is_solved())
-    # print(sodoku.get_possible_values(0, 0))
-    # print(sodoku.get_possible_values(2, 0))
-    # print(sodoku.get_possible_values(2, 1))
-    # print(sodoku.get_possible_values(2, 2))
-    # print(sodoku.get_possible_values(0, 2))
-    # print(sodoku.get_possible_values(1, 2))
-    # sodoku.fill_trivial_spaces()
-    # sodoku.pretty_print()
-    # print(sodoku.is_solved())
-    #get_input_and_parse()
+    sodoku.get_input_and_parse()
+    sodoku.solve()

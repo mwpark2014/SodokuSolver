@@ -92,45 +92,83 @@ class TestSodokuSolverMethods(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.sodokuWrong.init_set_values()
 
-    def test_init_possible_values(self):
-        self.sodokuEasy.init_possible_values()
-        self.sodokuMedium.init_possible_values()
-        self.sodokuHard.init_possible_values()
+    def test_update_possible_values(self):
+        self.sodokuEasy.update_possible_values()
+        self.sodokuMedium.update_possible_values()
+        self.sodokuHard.update_possible_values()
+
+        for sodoku in [self.sodokuEasy, self.sodokuMedium, self.sodokuHard]:
+            # Test that rows, cols, groups have len(9)
+            self.assertEqual(len(sodoku.possible_values['rows']), 9)
+            self.assertEqual(len(sodoku.possible_values['cols']), 9)
+            self.assertEqual(len(sodoku.possible_values['groups']), 9)
+            # Test that puzzle, visited are 9x9
+            self.assertEqual(len(sodoku.possible_values['puzzle']), 9)
+            self.assertEqual(len(sodoku.possible_values['puzzle'][0]), 9)
+            self.assertEqual(len(sodoku.possible_values['visited'][0]), 9)
 
         with self.assertRaises(ValueError):
-            self.sodokuWrong.init_set_values()
+            self.sodokuWrong.update_possible_values()
 
-    def test_place_value(self):
+        possible_values = self.sodokuEasy.possible_values
+        self.assertEqual(possible_values['rows'][0],
+                         {'2': [(0, 1), (0, 8)], '3': [(0, 1), (0, 3), (0, 4), (0, 6), (0, 7), (0, 8)], '9': [(0, 1)],
+                         '8': [(0, 3), (0, 4)], '5': [(0, 3), (0, 4), (0, 6), (0, 7)], '4': [(0, 4), (0, 7), (0, 8)]})
+        self.assertEqual(possible_values['cols'][0],
+                         {'2': [(1, 0), (5, 0), (8, 0)], '8': [(2, 0)], '4': [(4, 0), (5, 0)], '5': [(4, 0), (8, 0)],
+                          '7': [(8, 0)]})
+        self.assertEqual(possible_values['groups'][0],
+                         {'2': [(0, 1), (1, 0), (1, 1)], '3': [(0, 1), (1, 1), (2, 2)], '9': [(0, 1)],
+                          '6': [(1, 1), (2, 2)], '8': [(2, 0)]})
+        self.assertEqual(possible_values['puzzle'][4][4], {'9', '3', '4'})
+        self.assertEqual(possible_values['unfilled_spaces'][0], (1, (1, 0)))
+        self.assertEqual(possible_values['unfilled_spaces'][20], (3, (0, 7)))
+
+    def test_place_values(self):
         self.sodokuHard.init_set_values()
-        self.sodokuHard.init_possible_values()
+        self.sodokuHard.update_possible_values()
 
         # Illegal argument exception
         with self.assertRaises(ValueError):
-            self.sodokuHard.place_value(2, 1, 0)
+            self.sodokuHard.place_values([(2, 1, 0)])
         with self.assertRaises(ValueError):
-            self.sodokuHard.place_value(2, 1, '.')
+            self.sodokuHard.place_values([(2, 1, '.')])
         with self.assertRaises(ValueError):
-            self.sodokuHard.place_value(9, 0, '1')
+            self.sodokuHard.place_values([(9, 0, '1')])
         with self.assertRaises(ValueError):
-            self.sodokuHard.place_value(0, 9, '1')
+            self.sodokuHard.place_values([(0, 9, '1')])
         with self.assertRaises(ValueError):
-            self.sodokuHard.place_value(-1, 0, '1')
+            self.sodokuHard.place_values([(-1, 0, '1')])
         with self.assertRaises(ValueError):
-            self.sodokuHard.place_value(0, -1, '1')
+            self.sodokuHard.place_values([(0, -1, '1')])
         with self.assertRaises(ValueError):
-            self.sodokuHard.place_value(0, 0, '1')
+            self.sodokuHard.place_values([(0, 0, '1')])
 
         # Cause board to have an illegal state
         with self.assertRaises(ValueError):
-            self.sodokuHard.place_value(2, 1, '4')
+            self.sodokuHard.place_values([(2, 1, '4')])
 
-        self.sodokuHard.place_value(2, 1, '5')
+        # Before
+        self.assertEqual(self.sodokuHard.possible_values['rows'][2]['5'], [(2, 1), (2, 2)])
+        self.assertEqual(self.sodokuHard.possible_values['cols'][1]['5'], [(2, 1), (6, 1), (7, 1), (8, 1)])
+        self.assertEqual(self.sodokuHard.possible_values['groups'][0]['5'], [(2, 1), (2, 2)])
+        self.assertEqual(self.sodokuHard.possible_values['rows'][8]['5'], [(8, 1), (8, 2), (8, 5), (8, 6), (8, 8)])
+        self.assertEqual(self.sodokuHard.possible_values['cols'][2]['5'], [(2, 2), (6, 2), (7, 2), (8, 2)])
+        self.assertEqual(self.sodokuHard.possible_values['groups'][6]['5'], [(6, 1), (6, 2), (7, 1), (7, 2), (8, 1), (8, 2)])
+        self.sodokuHard.place_values([(2, 1, '5')])
         self.assertEqual(self.sodokuHard.set_values['puzzle'][2][1], '5')
+        # After
+        self.assertEqual(self.sodokuHard.possible_values['rows'][2].get('5', None), None)
+        self.assertEqual(self.sodokuHard.possible_values['cols'][1].get('5', None), None)
+        self.assertEqual(self.sodokuHard.possible_values['groups'][0].get('5', None), None)
+        self.assertEqual(self.sodokuHard.possible_values['rows'][8]['5'], [(8, 2), (8, 5), (8, 6), (8, 8)])
+        self.assertEqual(self.sodokuHard.possible_values['cols'][2]['5'], [(6, 2), (7, 2), (8, 2)])
+        self.assertEqual(self.sodokuHard.possible_values['groups'][6]['5'], [(6, 2), (7, 2), (8, 2)])
 
     def test_fill_trivial_spaces(self):
-        self.sodokuEasy.init_possible_values()
-        self.sodokuMedium.init_possible_values()
-        self.sodokuHard.init_possible_values()
+        self.sodokuEasy.update_possible_values()
+        self.sodokuMedium.update_possible_values()
+        self.sodokuHard.update_possible_values()
 
         self.assertTrue(self.sodokuEasy.fill_trivial_spaces())
         self.assertTrue(self.sodokuEasy.is_solved())
@@ -140,7 +178,12 @@ class TestSodokuSolverMethods(unittest.TestCase):
         self.assertFalse(self.sodokuHard.is_solved())
 
     def test_solved(self):
-        return
+        self.sodokuEasy.solve()
+        self.assertTrue(self.sodokuEasy.is_solved())
+        self.sodokuMedium.solve()
+        self.assertFalse(self.sodokuMedium.is_solved())
+        self.sodokuHard.solve()
+        self.assertFalse(self.sodokuHard.is_solved())
 
 if __name__ == '__main__':
     unittest.main()
