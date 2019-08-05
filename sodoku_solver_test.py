@@ -18,15 +18,15 @@ class TestSodokuSolverMethods(unittest.TestCase):
     ]
 
     exampleMediumPuzzle = [
-        ['X', '2', 'X', '6', 'X', '8', 'X', 'X', 'X'],
-        ['5', '8', 'X', 'X', 'X', '9', '7', 'X', 'X'],
-        ['X', 'X', 'X', 'X', '4', 'X', 'X', 'X', 'X'],
-        ['3', '7', 'X', 'X', 'X', 'X', '5', 'X', '4'],
-        ['6', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X'],
-        ['X', 'X', '8', 'X', 'X', 'X', 'X', '1', '3'],
-        ['X', 'X', 'X', 'X', '2', 'X', 'X', 'X', 'X'],
-        ['X', 'X', '9', '8', 'X', 'X', 'X', '3', '6'],
-        ['X', 'X', 'X', '3', 'X', '6', 'X', '9', 'X'],
+        ['9', 'X', 'X', '4', 'X', 'X', 'X', '3', '5'],
+        ['7', 'X', 'X', 'X', 'X', 'X', 'X', 'X', '9'],
+        ['X', '4', 'X', 'X', '5', '9', 'X', 'X', 'X'],
+        ['X', 'X', 'X', '9', '2', 'X', 'X', 'X', '3'],
+        ['6', '9', 'X', '8', 'X', '5', 'X', '2', '4'],
+        ['3', 'X', 'X', 'X', '1', '7', 'X', 'X', 'X'],
+        ['X', 'X', 'X', '7', '6', 'X', 'X', '4', 'X'],
+        ['4', 'X', 'X', 'X', 'X', 'X', 'X', 'X', '2'],
+        ['5', '8', 'X', 'X', 'X', '3', 'X', 'X', '6'],
     ]
 
     exampleHardPuzzle = [
@@ -41,12 +41,25 @@ class TestSodokuSolverMethods(unittest.TestCase):
         ['X', 'X', 'X', 'X', 'X', 'X', 'X', 'X', 'X'],
     ]
 
+    exampleHardPuzzle2 = [
+        ['X', 'X', '6', 'X', 'X', '7', 'X', '4', '8'],
+        ['4', 'X', '8', 'X', 'X', 'X', 'X', '9', 'X'],
+        ['X', '9', 'X', '4', '8', 'X', 'X', 'X', '1'],
+        ['X', 'X', '5', 'X', '2', 'X', '3', 'X', 'X'],
+        ['X', 'X', 'X', '3', '5', '4', 'X', 'X', 'X'],
+        ['X', 'X', '3', 'X', '6', 'X', '7', 'X', 'X'],
+        ['6', 'X', 'X', 'X', '7', '5', 'X', '8', 'X'],
+        ['X', '8', 'X', 'X', 'X', 'X', '9', 'X', '5'],
+        ['9', '5', 'X', '8', 'X', 'X', '4', 'X', 'X'],
+    ]
+
     exampleWrongPuzzle = [[str(i) for i in range(1, SIZE + 1)] for j in range(1, SIZE + 1)]
 
     def setUp(self):
         self.sodokuEasy = sodoku_solver.Sodoku(self.exampleEasyPuzzle)
         self.sodokuMedium = sodoku_solver.Sodoku(self.exampleMediumPuzzle)
         self.sodokuHard = sodoku_solver.Sodoku(self.exampleHardPuzzle)
+        self.sodokuHard2 = sodoku_solver.Sodoku(self.exampleHardPuzzle2)
         self.sodokuWrong = sodoku_solver.Sodoku(self.exampleWrongPuzzle)
 
     def test_get_group_index(self):
@@ -172,8 +185,8 @@ class TestSodokuSolverMethods(unittest.TestCase):
 
         self.assertTrue(self.sodokuEasy.fill_trivial_spaces())
         self.assertTrue(self.sodokuEasy.is_solved())
-        self.assertFalse(self.sodokuMedium.fill_trivial_spaces())
-        self.assertFalse(self.sodokuMedium.is_solved())
+        self.assertTrue(self.sodokuMedium.fill_trivial_spaces())
+        self.assertTrue(self.sodokuMedium.is_solved())
         self.assertFalse(self.sodokuHard.fill_trivial_spaces())
         self.assertFalse(self.sodokuHard.is_solved())
 
@@ -181,9 +194,11 @@ class TestSodokuSolverMethods(unittest.TestCase):
         self.sodokuEasy.solve()
         self.assertTrue(self.sodokuEasy.is_solved())
         self.sodokuMedium.solve()
-        self.assertFalse(self.sodokuMedium.is_solved())
+        self.assertTrue(self.sodokuMedium.is_solved())
         self.sodokuHard.solve()
-        self.assertFalse(self.sodokuHard.is_solved())
+        self.assertTrue(self.sodokuHard.is_solved())
+        self.sodokuHard2.solve()
+        self.assertTrue(self.sodokuHard2.is_solved())
 
 if __name__ == '__main__':
     unittest.main()

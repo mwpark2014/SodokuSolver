@@ -36,6 +36,7 @@ class Sodoku:
             # visited. This is a 2D matrix containing sets
             'visited': [[set() for i in range(SIZE)] for j in range(SIZE)],
         }
+        self.threads = 0
 
     # Ask for input and parse into 2d array
     def get_input_and_parse(self):
@@ -236,9 +237,12 @@ class Sodoku:
     # If that doesn't work, make guesses and recurse through different decision tree paths
     # Return true if puzzle is solved
     def solve_helper(self):
+        self.threads += 1
+        if self.threads % 1000 == 0:
+            print('{} decision paths have been explored!'.format(self.threads))
+            sodoku.pretty_print()
         if self.is_solved():
             return True
-        self.pretty_print()
         try:
             if self.fill_trivial_spaces():
                 return True
@@ -256,6 +260,7 @@ class Sodoku:
                 # Reset to previous state after determining that the guess did not leave to a solution
                 self.set_values = set_values_copy
                 self.possible_values = possible_values_copy
+                self.possible_values['visited'][i][j].add(possible_value)
         return False
 
     # Randomly generate solvable puzzles, taking in difficulty ratio
